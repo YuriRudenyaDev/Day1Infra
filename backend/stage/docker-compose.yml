@@ -1,0 +1,111 @@
+version: '3.0'
+services:
+  proxy:
+    container_name: "proxy"
+    image: 'nginx'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+    depends_on:
+      - backend
+      - jobseeker
+      - admin
+    restart: 'always'
+
+  jobseeker:
+    container_name: 'jobseeker'
+    image: '030732531121.dkr.ecr.eu-central-1.amazonaws.com/day1_jobseeker:${JOBSEEKER_TAG}'
+    ports:
+      - '3002:3000'
+    depends_on:
+      - backend
+    restart: 'always'
+
+  admin:
+    container_name: 'admin'
+    image: '030732531121.dkr.ecr.eu-central-1.amazonaws.com/day1_admin:${ADMIN_TAG}'
+    ports:
+      - '3003:80'
+    depends_on:
+      - backend
+    restart: 'always'
+
+  backend:
+    container_name: 'backend'
+    image: '030732531121.dkr.ecr.eu-central-1.amazonaws.com/day1_back:${BACKEND_TAG}'
+    ports:
+      - '3004:3000'
+    depends_on:
+      - database
+      - private_database
+    env_file:
+      - .backend.env
+      - .secrets.env
+    restart: 'always'
+
+  crawlers:
+    container_name: 'crawlers'
+    image: '030732531121.dkr.ecr.eu-central-1.amazonaws.com/day1_crawler:${CRAWLERS_TAG}'
+    ports:
+      - '3005:3000'
+    depends_on:
+      - database
+      - private_database
+    env_file:
+      - .crawlers.env
+      - .secrets.env
+    restart: 'always'
+
+  database:
+    container_name: 'database'
+    image: 'mariadb:10.5.8'
+    ports:
+      - "3308:3306"
+    volumes:
+      - day1_data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/my.cnf
+    environment:
+      MYSQL_DATABASE: 'day1'
+      MYSQL_USER: 'admin'
+      MYSQL_PASSWORD: 'root'
+      MYSQL_ROOT_PASSWORD: 'root'
+      MYSQL_ROOT_HOST: '%'
+      TZ: Asia/Jerusalem
+    restart: 'always'
+
+  private_database:
+    container_name: 'private_database'
+    image: 'mariadb:10.5.8'
+    ports:
+      - "3309:3306"
+    volumes:
+      - day1_private_data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: 'day1'
+      MYSQL_USER: 'admin'
+      MYSQL_PASSWORD: 'root'
+      MYSQL_ROOT_PASSWORD: 'root'
+      MYSQL_ROOT_HOST: '%'
+      TZ: Asia/Jerusalem
+    restart: 'always'
+
+  files-storage:
+    container_name: 'files-storage'
+    image: minio/minio
+    volumes:
+      - file_storage_data:/data
+    ports:
+      - "3320:9000"
+      - "3321:9001"
+    environment:
+      MINIO_ROOT_USER: 'admin'
+      MINIO_ROOT_PASSWORD: 'password'
+    command:  minio server /data --console-address ":9001"
+    restart: 'always'
+
+volumes:
+  day1_data:
+  day1_private_data:
+  file_storage_data:
